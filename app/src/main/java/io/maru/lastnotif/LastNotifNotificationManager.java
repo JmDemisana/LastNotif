@@ -69,7 +69,7 @@ public class LastNotifNotificationManager {
         );
 
         return new NotificationCompat.Builder(ctx, CHANNEL_KEEPALIVE)
-            .setSmallIcon(R.mipmap.ic_launcher_legacy)
+            .setSmallIcon(R.mipmap.ic_launcher_lastnotif_legacy)
             .setContentTitle(ctx.getString(R.string.notif_keepalive_title))
             .setContentText(ctx.getString(R.string.notif_keepalive_text))
             .setContentIntent(tapIntent)
@@ -113,7 +113,7 @@ public class LastNotifNotificationManager {
         );
 
         Notification n = new NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
-            .setSmallIcon(R.mipmap.ic_launcher_legacy)
+            .setSmallIcon(R.mipmap.ic_launcher_lastnotif_legacy)
             .setContentTitle(main)
             .setContentText(sub)
             .setContentIntent(tapIntent)
