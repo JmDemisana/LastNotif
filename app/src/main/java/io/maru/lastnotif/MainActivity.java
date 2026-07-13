@@ -55,8 +55,9 @@ public class MainActivity extends AppCompatActivity {
         WebSettings ws = webView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
-        ws.setAllowFileAccess(true);
-        ws.setAllowFileAccessFromFileURLs(true);
+        ws.setAllowFileAccess(false);
+        ws.setAllowFileAccessFromFileURLs(false);
+        ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setCacheMode(WebSettings.LOAD_DEFAULT);
 
         // Inject the native bridge
@@ -72,6 +73,15 @@ public class MainActivity extends AppCompatActivity {
                 // Only allow local asset URLs
                 String url = request.getUrl().toString();
                 return !url.startsWith("file://");
+            }
+
+            @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(
+                    WebView view, android.webkit.WebResourceRequest request) {
+                if ("http".equalsIgnoreCase(request.getUrl().getScheme())) {
+                    return new android.webkit.WebResourceResponse("text/plain", "UTF-8", null);
+                }
+                return super.shouldInterceptRequest(view, request);
             }
         });
     }
