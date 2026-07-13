@@ -130,76 +130,73 @@ public class LastNotifPollerService extends Service {
         );
     }
 
-    private void tick() {
-        String username = storage.getUsername().trim();
-        String source = storage.getTrackSource(); // "device", "lastfm", "mixed"
+    private static class PolledTrack {
+        String title = "";
+        String artist = "";
+        String album = "";
+        boolean isPlaying = false;
+        boolean useLocal = false;
+        String pollingMethod = "";
+        boolean shouldAbort = false;
+    }
 
-        Log.d(TAG, "Poller service tick. Source=" + source + ", Username=" + username);
-
+    private PolledTrack fetchTrack(String source, String username) {
+        PolledTrack pt = new PolledTrack();
         LastNotifMediaMonitor.TrackInfo localTrack = null;
         if ("device".equals(source) || "mixed".equals(source)) {
             localTrack = LastNotifMediaMonitor.getActiveTrack(this);
         }
 
-        boolean useLocal = false;
-        String title = "";
-        String artist = "";
-        String album = "";
-        boolean isPlaying = false;
-
         if ("device".equals(source)) {
             if (localTrack != null) {
-                title = localTrack.title;
-                artist = localTrack.artist;
-                album = localTrack.album;
-                isPlaying = localTrack.isPlaying;
-                useLocal = true;
-                Log.d(TAG, "Device track active: " + title + " - " + artist + " (isPlaying=" + isPlaying + ")");
+                pt.title = localTrack.title;
+                pt.artist = localTrack.artist;
+                pt.album = localTrack.album;
+                pt.isPlaying = localTrack.isPlaying;
+                pt.useLocal = true;
+                pt.pollingMethod = "Device";
+                Log.d(TAG, "Device track active: " + pt.title + " - " + pt.artist + " (isPlaying=" + pt.isPlaying + ")");
             } else {
                 Log.w(TAG, "Device source selected but no track details or notification permission.");
-                writeActiveTrack("", "", "", false, "", "Device");
-                return;
+                pt.shouldAbort = true;
+                pt.pollingMethod = "Device";
             }
         } else if ("mixed".equals(source) && localTrack != null && localTrack.isPlaying) {
-            title = localTrack.title;
-            artist = localTrack.artist;
-            album = localTrack.album;
-            isPlaying = localTrack.isPlaying;
-            useLocal = true;
-            Log.d(TAG, "Mixed source: choosing active device track: " + title + " - " + artist);
+            pt.title = localTrack.title;
+            pt.artist = localTrack.artist;
+            pt.album = localTrack.album;
+            pt.isPlaying = localTrack.isPlaying;
+            pt.useLocal = true;
+            pt.pollingMethod = "Mixed→Device";
+            Log.d(TAG, "Mixed source: choosing active device track: " + pt.title + " - " + pt.artist);
         } else {
             // Last.fm or mixed fallback
             if (username.isEmpty()) {
                 Log.d(TAG, "Last.fm polling skipped: username is empty.");
-                writeActiveTrack("", "", "", false, "", source);
-                return;
+                pt.shouldAbort = true;
+                pt.pollingMethod = source;
+                return pt;
             }
             LastNotifSiteClient.NowPlayingResult np =
                 LastNotifSiteClient.getNowPlaying(username);
             if (np == null) {
                 Log.w(TAG, "Last.fm fetch returned null.");
-                return;
+                pt.shouldAbort = true;
+                return pt;
             }
-            title = np.title;
-            artist = np.artist;
-            album = np.album;
-            isPlaying = np.isPlaying;
-            Log.d(TAG, "Last.fm source active: " + title + " - " + artist + " (isPlaying=" + isPlaying + ")");
+            pt.title = np.title;
+            pt.artist = np.artist;
+            pt.album = np.album;
+            pt.isPlaying = np.isPlaying;
+            pt.pollingMethod = "mixed".equals(source) ? "Mixed→Last.fm" : "Last.fm";
+            Log.d(TAG, "Last.fm source active: " + pt.title + " - " + pt.artist + " (isPlaying=" + pt.isPlaying + ")");
         }
+        return pt;
+    }
 
-        String trackKey = artist + " - " + title;
-
-        // Resolve human-readable polling method label
-        String pollingMethod;
-        if (useLocal) {
-            pollingMethod = "device".equals(source) ? "Device" : "Mixed→Device";
-        } else {
-            pollingMethod = "mixed".equals(source) ? "Mixed→Last.fm" : "Last.fm";
-        }
-
-        // ── Song-change detection ──────────────────────────────────────────
+    private void handleTrackChange(PolledTrack pt, String trackKey) {
         String lastKey = storage.getLastTrackKey();
-        boolean trackChanged = isPlaying && !trackKey.equals(lastKey);
+        boolean trackChanged = pt.isPlaying && !trackKey.equals(lastKey);
 
         if (trackChanged) {
             Log.i(TAG, "Track changed detected: " + trackKey + " (previous: " + lastKey + ")");
@@ -210,19 +207,20 @@ public class LastNotifPollerService extends Service {
             cachedLyricLines = null;
             lastLyricIndex = -1;
 
-            if (storage.isNotifySongUpdate() || (storage.isLyricsEnabled() && !useLocal)) {
+            if (storage.isNotifySongUpdate() || (storage.isLyricsEnabled() && !pt.useLocal)) {
                 Log.i(TAG, "Posting song change notification alert.");
                 notifMgr.postSongAlert(
-                    title, artist, album,
+                    pt.title, pt.artist, pt.album,
                     storage.getNotifMainFormat(),
                     storage.getNotifSubFormat(),
-                    pollingMethod
+                    pt.pollingMethod
                 );
             }
         }
+    }
 
-        // ── Interval alert ─────────────────────────────────────────────────
-        if (storage.isIntervalEnabled() && isPlaying) {
+    private void handleIntervalAlert(PolledTrack pt) {
+        if (storage.isIntervalEnabled() && pt.isPlaying) {
             long now       = System.currentTimeMillis();
             long lastFired = storage.getLastIntervalNotifAt();
             long intervalMs = storage.getIntervalMinutes() * 60_000L;
@@ -231,62 +229,101 @@ public class LastNotifPollerService extends Service {
                 Log.i(TAG, "Posting interval alert notification.");
                 storage.setLastIntervalNotifAt(now);
                 notifMgr.postSongAlert(
-                    title, artist, album,
+                    pt.title, pt.artist, pt.album,
                     storage.getNotifMainFormat(),
                     storage.getNotifSubFormat(),
-                    pollingMethod
+                    pt.pollingMethod
                 );
             }
         }
+    }
 
-        // ── Lyrics loop ────────────────────────────────────────────────────
-        String currentLyric = "";
-        if (storage.isLyricsEnabled() && isPlaying && !useLocal) {
-            // Fetch/refresh lyrics if track changed
-            if (!trackKey.equals(cachedLyricsForTrackKey)) {
-                cachedLyricsForTrackKey = trackKey;
-                cachedLyricLines = null;
-                lastLyricIndex = -1;
+    private String handleLyrics(PolledTrack pt, String trackKey, String username) {
+        if (!storage.isLyricsEnabled() || !pt.isPlaying || pt.useLocal) {
+            return "";
+        }
 
-                LastNotifSiteClient.LyricsResult lr =
-                    LastNotifSiteClient.getLyrics(username);
+        // Fetch/refresh lyrics if track changed
+        if (!trackKey.equals(cachedLyricsForTrackKey)) {
+            cachedLyricsForTrackKey = trackKey;
+            cachedLyricLines = null;
+            lastLyricIndex = -1;
 
-                if (lr != null && !lr.lines.isEmpty()) {
-                    cachedLyricLines       = lr.lines;
-                    cachedSyncStartedAtMs  = lr.syncStartedAtMs;
-                } else {
-                    // No lyrics available — nothing to do this tick
-                    writeActiveTrack(title, artist, album, isPlaying, "", pollingMethod);
-                    return;
-                }
-            }
+            LastNotifSiteClient.LyricsResult lr =
+                LastNotifSiteClient.getLyrics(username);
 
-            if (cachedLyricLines == null || cachedLyricLines.isEmpty()) {
-                writeActiveTrack(title, artist, album, isPlaying, "", pollingMethod);
-                return;
-            }
-
-            // Compute current position using the server-anchored sync time
-            long posMs = System.currentTimeMillis() - cachedSyncStartedAtMs;
-            if (posMs < 0) posMs = 0;
-
-            int activeIndex = findLyricIndex(cachedLyricLines, posMs);
-
-            if (activeIndex >= 0) {
-                currentLyric = cachedLyricLines.get(activeIndex).text;
-                if (activeIndex != lastLyricIndex) {
-                    lastLyricIndex = activeIndex;
-                    if (!currentLyric.isEmpty()) {
-                        notifMgr.postLyricAlert(currentLyric, title, artist);
-                    }
-                }
+            if (lr != null && !lr.lines.isEmpty()) {
+                cachedLyricLines       = lr.lines;
+                cachedSyncStartedAtMs  = lr.syncStartedAtMs;
+            } else {
+                return null; // Return null to indicate abort
             }
         }
 
-        writeActiveTrack(title, artist, album, isPlaying, currentLyric, pollingMethod);
+        if (cachedLyricLines == null || cachedLyricLines.isEmpty()) {
+            return null; // Return null to indicate abort
+        }
+
+        // Compute current position using the server-anchored sync time
+        long posMs = System.currentTimeMillis() - cachedSyncStartedAtMs;
+        if (posMs < 0) posMs = 0;
+
+        int activeIndex = findLyricIndex(cachedLyricLines, posMs);
+        String currentLyric = "";
+
+        if (activeIndex >= 0) {
+            currentLyric = cachedLyricLines.get(activeIndex).text;
+            if (activeIndex != lastLyricIndex) {
+                lastLyricIndex = activeIndex;
+                if (!currentLyric.isEmpty()) {
+                    notifMgr.postLyricAlert(currentLyric, pt.title, pt.artist);
+                }
+            }
+        }
+        return currentLyric;
     }
 
-    /** Returns the index of the lyric line active at posMs, or -1 if before first line */
+    private void tick() {
+        String username = storage.getUsername().trim();
+        String source = storage.getTrackSource(); // "device", "lastfm", "mixed"
+
+        Log.d(TAG, "Poller service tick. Source=" + source + ", Username=" + username);
+
+        PolledTrack pt = fetchTrack(source, username);
+
+        if (pt.shouldAbort) {
+            // Check if we need to write empty track (null np check doesn't write)
+            // Original code:
+            // if device && !localTrack -> writeActiveTrack("", "", "", false, "", "Device"); return;
+            // if !device && username.isEmpty() -> writeActiveTrack("", "", "", false, "", source); return;
+            // if !device && !username.isEmpty() && np == null -> return;
+
+            if ("device".equals(source) && pt.pollingMethod.equals("Device")) {
+                writeActiveTrack("", "", "", false, "", "Device");
+            } else if (!"device".equals(source) && username.isEmpty()) {
+                writeActiveTrack("", "", "", false, "", source);
+            }
+            return;
+        }
+
+        String trackKey = pt.artist + " - " + pt.title;
+
+        handleTrackChange(pt, trackKey);
+        handleIntervalAlert(pt);
+
+        String currentLyric = "";
+        if (storage.isLyricsEnabled() && pt.isPlaying && !pt.useLocal) {
+            currentLyric = handleLyrics(pt, trackKey, username);
+            if (currentLyric == null) {
+                 // Lyrics aborted tick
+                 writeActiveTrack(pt.title, pt.artist, pt.album, pt.isPlaying, "", pt.pollingMethod);
+                 return;
+            }
+        }
+
+        writeActiveTrack(pt.title, pt.artist, pt.album, pt.isPlaying, currentLyric, pt.pollingMethod);
+    }
+/** Returns the index of the lyric line active at posMs, or -1 if before first line */
     private static int findLyricIndex(
             List<LastNotifSiteClient.LyricLine> lines, long posMs) {
         int idx = -1;
