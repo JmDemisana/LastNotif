@@ -118,7 +118,7 @@ public class LastNotifPollerService extends Service {
                 file.delete();
             }
         } catch (Exception e) {
-            // Ignore
+            Log.w(TAG, "Failed to delete active_track.json", e);
         }
         if (pollFuture != null) pollFuture.cancel(false);
         if (executor != null)   executor.shutdown();
