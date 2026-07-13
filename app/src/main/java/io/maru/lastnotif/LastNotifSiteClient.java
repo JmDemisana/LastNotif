@@ -150,7 +150,9 @@ public class LastNotifSiteClient {
                     long tsMs = (minutes * 60_000L) + (long)(seconds * 1000L);
                     String text = m.group(3).trim();
                     result.add(new LyricLine(tsMs, text));
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                    Log.w(TAG, "Skipped malformed lyric line: " + line);
+                }
             }
         }
 
