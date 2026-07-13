@@ -52,7 +52,7 @@ public class LastNotifSiteClient {
 
         public LyricLine(long timestampMs, String text) {
             this.timestampMs = timestampMs;
-            this.text = text;
+            this.text = text != null ? text : "";
         }
     }
 
