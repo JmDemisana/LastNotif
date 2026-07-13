@@ -336,12 +336,22 @@ public class LastNotifPollerService extends Service {
 /** Returns the index of the lyric line active at posMs, or -1 if before first line */
     private static int findLyricIndex(
             List<LastNotifSiteClient.LyricLine> lines, long posMs) {
-        int idx = -1;
-        for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).timestampMs <= posMs) idx = i;
-            else break;
+        int low = 0;
+        int high = lines.size() - 1;
+        int bestIdx = -1;
+
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            long midVal = lines.get(mid).timestampMs;
+
+            if (midVal <= posMs) {
+                bestIdx = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
         }
-        return idx;
+        return bestIdx;
     }
 
     private void writeActiveTrack(String title, String artist, String album, boolean isPlaying, String lyricLine, String pollingMethod) {
