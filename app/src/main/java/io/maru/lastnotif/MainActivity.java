@@ -56,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
         ws.setAllowFileAccess(true);
-        ws.setAllowFileAccessFromFileURLs(true);
         ws.setCacheMode(WebSettings.LOAD_DEFAULT);
 
         // Inject the native bridge
@@ -88,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    @android.annotation.SuppressLint("GestureBackNavigation")
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();

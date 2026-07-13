@@ -1,0 +1,10 @@
+🔒 Fix Insecure WebView Configuration
+
+🎯 **What:** The vulnerability fixed
+Insecure WebView Configuration which allowed file access from file URLs.
+
+⚠️ **Risk:** The potential impact if left unfixed
+Cross-origin file URL access could potentially allow malicious local files to read other local files or execute malicious scripts, putting user data and the app at risk.
+
+🛡️ **Solution:** How the fix addresses the vulnerability
+Removed `ws.setAllowFileAccessFromFileURLs(true);` from `MainActivity.java`. Local assets do not typically require cross-origin file URL access, so it is safe to remove this configuration.
