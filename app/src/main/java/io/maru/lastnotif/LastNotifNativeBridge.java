@@ -1,6 +1,7 @@
 package io.maru.lastnotif;
 
 import android.content.Context;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONObject;
@@ -16,6 +17,8 @@ import org.json.JSONObject;
  *   NativeBridge.isPollerRunning()   → true/false string
  */
 public class LastNotifNativeBridge {
+
+    private static final String TAG = "LastNotifNativeBridge";
 
     private final Context ctx;
     private final LastNotifStorage storage;
@@ -60,6 +63,7 @@ public class LastNotifNativeBridge {
                 storage.setTrackSource(obj.getString("trackSource"));
 
         } catch (Exception e) {
+            Log.w(TAG, "Failed to parse settings JSON", e);
             // Ignore malformed JSON — settings stay as-is
         }
     }
@@ -91,6 +95,7 @@ public class LastNotifNativeBridge {
                 }
             }
         } catch (Exception e) {
+            Log.w(TAG, "Failed to check poller running state", e);
             // Fallback to storage state
         }
         return String.valueOf(storage.isServiceRunning());
@@ -111,7 +116,7 @@ public class LastNotifNativeBridge {
                 return sb.toString();
             }
         } catch (Exception e) {
-            // Ignore
+            Log.w(TAG, "Failed to read active track", e);
         }
         return "{}";
     }
