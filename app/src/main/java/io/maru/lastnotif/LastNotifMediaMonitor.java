@@ -50,50 +50,54 @@ public class LastNotifMediaMonitor {
                 return null;
             }
 
-            // Find the playing controller first
-            MediaController activeController = null;
-            for (MediaController mc : controllers) {
-                PlaybackState state = mc.getPlaybackState();
-                if (state != null && state.getState() == PlaybackState.STATE_PLAYING) {
-                    activeController = mc;
-                    break;
-                }
-            }
-
-            // Fallback to the first controller if none is active
-            if (activeController == null) {
-                activeController = controllers.get(0);
-            }
-
-            if (activeController == null) {
-                return null;
-            }
-
-            MediaMetadata metadata = activeController.getMetadata();
-            PlaybackState state = activeController.getPlaybackState();
-            boolean isPlaying = state != null && state.getState() == PlaybackState.STATE_PLAYING;
-
-            if (metadata != null) {
-                String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
-                String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-                String album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM);
-
-                // Fallbacks to display keys if primary ones are empty
-                if (title == null || title.isEmpty()) {
-                    title = metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
-                }
-                if (artist == null || artist.isEmpty()) {
-                    artist = metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE);
-                }
-
-                if ((title != null && !title.isEmpty()) || (artist != null && !artist.isEmpty())) {
-                    return new TrackInfo(title, artist, album, isPlaying);
-                }
+            MediaController activeController = getActiveController(controllers);
+            if (activeController != null) {
+                return getTrackInfoFromController(activeController);
             }
         } catch (SecurityException se) {
             // Access permission revoked
         } catch (Exception e) {
             // Ignore
+        }
+        return null;
+    }
+
+    private static MediaController getActiveController(List<MediaController> controllers) {
+        if (controllers == null || controllers.isEmpty()) {
+            return null;
+        }
+        // Find the playing controller first
+        for (MediaController mc : controllers) {
+            PlaybackState state = mc.getPlaybackState();
+            if (state != null && state.getState() == PlaybackState.STATE_PLAYING) {
+                return mc;
+            }
+        }
+        // Fallback to the first controller if none is active
+        return controllers.get(0);
+    }
+
+    private static TrackInfo getTrackInfoFromController(MediaController activeController) {
+        MediaMetadata metadata = activeController.getMetadata();
+        PlaybackState state = activeController.getPlaybackState();
+        boolean isPlaying = state != null && state.getState() == PlaybackState.STATE_PLAYING;
+
+        if (metadata != null) {
+            String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
+            String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
+            String album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM);
+
+            // Fallbacks to display keys if primary ones are empty
+            if (title == null || title.isEmpty()) {
+                title = metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+            }
+            if (artist == null || artist.isEmpty()) {
+                artist = metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE);
+            }
+
+            if ((title != null && !title.isEmpty()) || (artist != null && !artist.isEmpty())) {
+                return new TrackInfo(title, artist, album, isPlaying);
+            }
         }
         return null;
     }
