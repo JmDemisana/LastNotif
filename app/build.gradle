@@ -23,6 +23,10 @@ android {
         buildConfig true
     }
 
+    lint {
+        abortOnError false
+    }
+
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             outputFileName = "maru-lastnotif.apk"

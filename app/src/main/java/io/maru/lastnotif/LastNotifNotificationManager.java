@@ -43,7 +43,7 @@ public class LastNotifNotificationManager {
             ctx.getString(R.string.notif_channel_alerts),
             NotificationManager.IMPORTANCE_HIGH
         );
-        alerts.setDescription("Now-playing track and lyric updates");
+        alerts.setDescription(ctx.getString(R.string.notif_channel_alerts_desc));
         alerts.setShowBadge(true);
         nm.createNotificationChannel(alerts);
 
@@ -53,7 +53,7 @@ public class LastNotifNotificationManager {
             ctx.getString(R.string.notif_channel_keepalive),
             NotificationManager.IMPORTANCE_MIN
         );
-        keepalive.setDescription("Background service indicator");
+        keepalive.setDescription(ctx.getString(R.string.notif_channel_keepalive_desc));
         keepalive.setShowBadge(false);
         keepalive.setSound(null, null);
         nm.createNotificationChannel(keepalive);
