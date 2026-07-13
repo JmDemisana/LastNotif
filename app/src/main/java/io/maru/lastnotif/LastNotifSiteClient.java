@@ -42,7 +42,7 @@ public class LastNotifSiteClient {
 
         /** Stable key used to detect track changes */
         public String trackKey() {
-            return title + "::" + artist;
+            return artist + " - " + title;
         }
     }
 
