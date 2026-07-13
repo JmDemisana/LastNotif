@@ -78,20 +78,8 @@ public class LastNotifNativeBridge {
 
     @JavascriptInterface
     public String isPollerRunning() {
-        try {
-            android.app.ActivityManager manager = (android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
-            if (manager != null) {
-                java.util.List<android.app.ActivityManager.RunningServiceInfo> services = manager.getRunningServices(Integer.MAX_VALUE);
-                if (services != null) {
-                    for (android.app.ActivityManager.RunningServiceInfo service : services) {
-                        if (LastNotifPollerService.class.getName().equals(service.service.getClassName())) {
-                            return "true";
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Fallback to storage state
+        if (LastNotifPollerService.isRunning()) {
+            return "true";
         }
         return String.valueOf(storage.isServiceRunning());
     }
