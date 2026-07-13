@@ -7,6 +7,7 @@ import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.provider.Settings;
+import android.util.Log;
 import java.util.List;
 
 public class LastNotifMediaMonitor {
@@ -92,8 +93,10 @@ public class LastNotifMediaMonitor {
             }
         } catch (SecurityException se) {
             // Access permission revoked
+            Log.w("LastNotifMediaMonitor", "Notification access permission revoked", se);
         } catch (Exception e) {
             // Ignore
+            Log.w("LastNotifMediaMonitor", "Exception in getActiveTrack", e);
         }
         return null;
     }
