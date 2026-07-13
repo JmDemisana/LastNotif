@@ -88,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    @android.annotation.SuppressLint({"GestureBackNavigation", "MissingSuperCall", "deprecation"})
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();

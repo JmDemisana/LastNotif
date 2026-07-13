@@ -4,6 +4,7 @@ import android.content.Context;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONObject;
+import android.util.Log;
 
 /**
  * JS ↔ Java bridge injected into the settings WebView as "NativeBridge".
@@ -16,6 +17,8 @@ import org.json.JSONObject;
  *   NativeBridge.isPollerRunning()   → true/false string
  */
 public class LastNotifNativeBridge {
+
+    private static final String TAG = "LastNotifNativeBridge";
 
     private final Context ctx;
     private final LastNotifStorage storage;
@@ -60,6 +63,7 @@ public class LastNotifNativeBridge {
                 storage.setTrackSource(obj.getString("trackSource"));
 
         } catch (Exception e) {
+            Log.e(TAG, "Failed to save settings JSON", e);
             // Ignore malformed JSON — settings stay as-is
         }
     }
@@ -91,6 +95,7 @@ public class LastNotifNativeBridge {
                 }
             }
         } catch (Exception e) {
+            Log.e(TAG, "Error checking poller service running status", e);
             // Fallback to storage state
         }
         return String.valueOf(storage.isServiceRunning());
@@ -111,6 +116,7 @@ public class LastNotifNativeBridge {
                 return sb.toString();
             }
         } catch (Exception e) {
+            Log.e(TAG, "Failed to read active track", e);
             // Ignore
         }
         return "{}";
