@@ -49,7 +49,17 @@ public class LastNotifPollerService extends Service {
     private long   cachedSyncStartedAtMs = 0L;
     private int    lastLyricIndex = -1;
 
+
+    // Cache for writeActiveTrack
+    private String lastWrittenTitle = null;
+    private String lastWrittenArtist = null;
+    private String lastWrittenAlbum = null;
+    private Boolean lastWrittenIsPlaying = null;
+    private String lastWrittenLyricLine = null;
+    private String lastWrittenPollingMethod = null;
+
     // ─── Lifecycle ────────────────────────────────────────────────────────────
+
 
     @Override
     public void onCreate() {
@@ -298,23 +308,47 @@ public class LastNotifPollerService extends Service {
     }
 
     private void writeActiveTrack(String title, String artist, String album, boolean isPlaying, String lyricLine, String pollingMethod) {
-        try {
-            java.io.File file = new java.io.File(getCacheDir(), "active_track.json");
-            JSONObject json = new JSONObject();
-            json.put("title", title);
-            json.put("artist", artist);
-            json.put("album", album);
-            json.put("isPlaying", isPlaying);
-            json.put("lyricLine", lyricLine != null ? lyricLine : "");
-            json.put("pollingMethod", pollingMethod != null ? pollingMethod : "");
-            json.put("timestamp", System.currentTimeMillis());
+        String safeTitle = title != null ? title : "";
+        String safeArtist = artist != null ? artist : "";
+        String safeAlbum = album != null ? album : "";
+        String safeLyricLine = lyricLine != null ? lyricLine : "";
+        String safePollingMethod = pollingMethod != null ? pollingMethod : "";
 
-            java.io.FileWriter writer = new java.io.FileWriter(file);
-            writer.write(json.toString());
-            writer.close();
-        } catch (Exception e) {
-            Log.e(TAG, "Error writing active track json", e);
+        if (safeTitle.equals(lastWrittenTitle) &&
+            safeArtist.equals(lastWrittenArtist) &&
+            safeAlbum.equals(lastWrittenAlbum) &&
+            lastWrittenIsPlaying != null && isPlaying == lastWrittenIsPlaying &&
+            safeLyricLine.equals(lastWrittenLyricLine) &&
+            safePollingMethod.equals(lastWrittenPollingMethod)) {
+            return; // No changes, avoid disk I/O
         }
+
+        lastWrittenTitle = safeTitle;
+        lastWrittenArtist = safeArtist;
+        lastWrittenAlbum = safeAlbum;
+        lastWrittenIsPlaying = isPlaying;
+        lastWrittenLyricLine = safeLyricLine;
+        lastWrittenPollingMethod = safePollingMethod;
+
+        executor.execute(() -> {
+            try {
+                java.io.File file = new java.io.File(getCacheDir(), "active_track.json");
+                org.json.JSONObject json = new org.json.JSONObject();
+                json.put("title", safeTitle);
+                json.put("artist", safeArtist);
+                json.put("album", safeAlbum);
+                json.put("isPlaying", isPlaying);
+                json.put("lyricLine", safeLyricLine);
+                json.put("pollingMethod", safePollingMethod);
+                json.put("timestamp", System.currentTimeMillis());
+
+                java.io.FileWriter writer = new java.io.FileWriter(file);
+                writer.write(json.toString());
+                writer.close();
+            } catch (Exception e) {
+                Log.e(TAG, "Error writing active track json", e);
+            }
+        });
     }
 
     // ─── Static helpers ───────────────────────────────────────────────────────

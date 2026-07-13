@@ -141,17 +141,27 @@ public class LastNotifSiteClient {
         List<LyricLine> result = new ArrayList<>();
         Pattern p = Pattern.compile("\\[(\\d+):(\\d+\\.\\d+)\\](.*)");
 
-        for (String line : lrc.split("\n")) {
-            Matcher m = p.matcher(line.trim());
-            if (m.matches()) {
-                try {
-                    long minutes = Long.parseLong(m.group(1));
-                    double seconds = Double.parseDouble(m.group(2));
-                    long tsMs = (minutes * 60_000L) + (long)(seconds * 1000L);
-                    String text = m.group(3).trim();
-                    result.add(new LyricLine(tsMs, text));
-                } catch (NumberFormatException ignored) {}
+        int start = 0;
+        int len = lrc.length();
+        while (start < len) {
+            int end = lrc.indexOf('\n', start);
+            if (end == -1) {
+                end = len;
             }
+            String line = lrc.substring(start, end).trim();
+            if (!line.isEmpty()) {
+                Matcher m = p.matcher(line);
+                if (m.matches()) {
+                    try {
+                        long minutes = Long.parseLong(m.group(1));
+                        double seconds = Double.parseDouble(m.group(2));
+                        long tsMs = (minutes * 60_000L) + (long)(seconds * 1000L);
+                        String text = m.group(3).trim();
+                        result.add(new LyricLine(tsMs, text));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+            start = end + 1;
         }
 
         return result;

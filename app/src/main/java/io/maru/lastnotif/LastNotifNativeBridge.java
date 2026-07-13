@@ -32,32 +32,58 @@ public class LastNotifNativeBridge {
 
     @JavascriptInterface
     public void saveSettings(String json) {
+        if (json == null || json.length() > 5000) {
+            return; // Prevent excessive payload size
+        }
         try {
             JSONObject obj = new JSONObject(json);
 
-            if (obj.has("username"))
-                storage.setUsername(obj.getString("username"));
+            if (obj.has("username") && obj.opt("username") instanceof String) {
+                String val = obj.getString("username");
+                if (val.length() <= 100) {
+                    storage.setUsername(val);
+                }
+            }
 
-            if (obj.has("notifySongUpdate"))
+            if (obj.has("notifySongUpdate") && obj.opt("notifySongUpdate") instanceof Boolean) {
                 storage.setNotifySongUpdate(obj.getBoolean("notifySongUpdate"));
+            }
 
-            if (obj.has("intervalEnabled"))
+            if (obj.has("intervalEnabled") && obj.opt("intervalEnabled") instanceof Boolean) {
                 storage.setIntervalEnabled(obj.getBoolean("intervalEnabled"));
+            }
 
-            if (obj.has("intervalMinutes"))
-                storage.setIntervalMinutes(obj.getInt("intervalMinutes"));
+            if (obj.has("intervalMinutes") && obj.opt("intervalMinutes") instanceof Integer) {
+                int val = obj.getInt("intervalMinutes");
+                if (val >= 1 && val <= 1440) {
+                    storage.setIntervalMinutes(val);
+                }
+            }
 
-            if (obj.has("notifMainFormat"))
-                storage.setNotifMainFormat(obj.getString("notifMainFormat"));
+            if (obj.has("notifMainFormat") && obj.opt("notifMainFormat") instanceof String) {
+                String val = obj.getString("notifMainFormat");
+                if (val.length() <= 200) {
+                    storage.setNotifMainFormat(val);
+                }
+            }
 
-            if (obj.has("notifSubFormat"))
-                storage.setNotifSubFormat(obj.getString("notifSubFormat"));
+            if (obj.has("notifSubFormat") && obj.opt("notifSubFormat") instanceof String) {
+                String val = obj.getString("notifSubFormat");
+                if (val.length() <= 200) {
+                    storage.setNotifSubFormat(val);
+                }
+            }
 
-            if (obj.has("lyricsEnabled"))
+            if (obj.has("lyricsEnabled") && obj.opt("lyricsEnabled") instanceof Boolean) {
                 storage.setLyricsEnabled(obj.getBoolean("lyricsEnabled"));
+            }
 
-            if (obj.has("trackSource"))
-                storage.setTrackSource(obj.getString("trackSource"));
+            if (obj.has("trackSource") && obj.opt("trackSource") instanceof String) {
+                String val = obj.getString("trackSource");
+                if ("device".equals(val) || "lastfm".equals(val) || "mixed".equals(val)) {
+                    storage.setTrackSource(val);
+                }
+            }
 
         } catch (Exception e) {
             // Ignore malformed JSON — settings stay as-is
@@ -78,20 +104,8 @@ public class LastNotifNativeBridge {
 
     @JavascriptInterface
     public String isPollerRunning() {
-        try {
-            android.app.ActivityManager manager = (android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
-            if (manager != null) {
-                java.util.List<android.app.ActivityManager.RunningServiceInfo> services = manager.getRunningServices(Integer.MAX_VALUE);
-                if (services != null) {
-                    for (android.app.ActivityManager.RunningServiceInfo service : services) {
-                        if (LastNotifPollerService.class.getName().equals(service.service.getClassName())) {
-                            return "true";
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Fallback to storage state
+        if (LastNotifPollerService.isRunning()) {
+            return "true";
         }
         return String.valueOf(storage.isServiceRunning());
     }
